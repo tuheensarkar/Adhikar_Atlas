@@ -21,7 +21,7 @@ const openSans = Open_Sans({
   variable: "--font-open-sans",
 })
 
-export function ClientLayout({
+function ClientLayoutContent({
   children,
 }: Readonly<{
   children: React.ReactNode
@@ -31,9 +31,21 @@ export function ClientLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${montserrat.variable} ${openSans.variable} antialiased`}>
-        <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+        {children}
         <Analytics />
       </body>
     </html>
+  )
+}
+
+export function ClientLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ClientLayoutContent>{children}</ClientLayoutContent>
+    </Suspense>
   )
 }
