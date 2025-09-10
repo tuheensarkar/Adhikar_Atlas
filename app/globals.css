@@ -1,6 +1,95 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Leaflet CSS */
+@import "leaflet/dist/leaflet.css";
+
+/* Custom Map Styles */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+}
+
+/* Smooth transitions for layer opacity */
+.leaflet-layer {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Custom marker cluster styles */
+.marker-cluster-small {
+  background-color: rgba(59, 130, 246, 0.6) !important;
+  border: 2px solid rgba(59, 130, 246, 0.8) !important;
+}
+
+.marker-cluster-medium {
+  background-color: rgba(249, 115, 22, 0.6) !important;
+  border: 2px solid rgba(249, 115, 22, 0.8) !important;
+}
+
+.marker-cluster-large {
+  background-color: rgba(239, 68, 68, 0.6) !important;
+  border: 2px solid rgba(239, 68, 68, 0.8) !important;
+}
+
+/* Custom Opacity Slider Styles */
+.opacity-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #6b7280;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+
+.opacity-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+.opacity-slider::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #6b7280;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.opacity-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+/* Clip polygon class for legend */
+.clip-polygon {
+  clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
+}
+
 /* Enhanced Government Typography */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 

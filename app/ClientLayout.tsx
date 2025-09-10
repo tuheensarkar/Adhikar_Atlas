@@ -4,8 +4,6 @@ import type React from "react"
 import { Montserrat } from "next/font/google"
 import { Open_Sans } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { useSearchParams } from "next/navigation"
-import { Suspense } from "react"
 import "./globals.css"
 
 // Added government-tech appropriate fonts
@@ -21,13 +19,11 @@ const openSans = Open_Sans({
   variable: "--font-open-sans",
 })
 
-function ClientLayoutContent({
+export function ClientLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const searchParams = useSearchParams()
-
   return (
     <html lang="en">
       <body className={`font-sans ${montserrat.variable} ${openSans.variable} antialiased`}>
@@ -35,17 +31,5 @@ function ClientLayoutContent({
         <Analytics />
       </body>
     </html>
-  )
-}
-
-export function ClientLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ClientLayoutContent>{children}</ClientLayoutContent>
-    </Suspense>
   )
 }

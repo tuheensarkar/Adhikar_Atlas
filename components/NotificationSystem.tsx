@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, createContext, useContext, ReactNode } from "react"
+import { useState, useEffect, createContext, useContext, ReactNode, useRef } from "react"
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react"
 
 type NotificationType = "success" | "error" | "warning" | "info"
@@ -37,9 +37,12 @@ interface NotificationProviderProps {
 
 export function NotificationProvider({ children }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const notificationCounterRef = useRef(0)
 
   const addNotification = (notification: Omit<Notification, "id">) => {
-    const id = Date.now().toString()
+    // Use counter-based ID to avoid hydration mismatch
+    notificationCounterRef.current += 1
+    const id = `notification_${notificationCounterRef.current}`
     const newNotification = { ...notification, id }
     
     setNotifications(prev => [...prev, newNotification])

@@ -2,55 +2,119 @@
 
 import type React from "react"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { useDocumentUpload } from "@/hooks/useDocument"
+import type { StructuredClaim, Document } from "@/types"
 
-const mockDocuments = [
-  {
-    id: 1,
-    name: "FRA_Claim_MP_001.pdf",
-    size: "2.4 MB",
-    date: "2024-01-15",
-    status: "completed",
-    holder: "Ramesh Kumar Bhil",
-    village: "Badwani, MP",
-    type: "Individual Forest Rights (IFR)",
-    area: "4.2 hectares",
-    progress: 100,
-  },
-  {
-    id: 2,
-    name: "Community_Claim_OD_045.pdf",
-    size: "1.8 MB",
-    date: "2024-01-14",
-    status: "processing",
-    holder: "Balaghat Community",
-    village: "Kendujhar, OD",
-    type: "Community Forest Rights (CFR)",
-    area: "12.5 hectares",
-    progress: 65,
-  },
-  {
-    id: 3,
-    name: "Scan_Document_TR_123.jpg",
-    size: "890 KB",
-    date: "2024-01-14",
-    status: "error",
-    holder: "Processing Failed",
-    village: "Unknown",
-    type: "Unknown",
-    area: "Unknown",
-    progress: 0,
-  },
-]
+interface DemoDocument extends Document {
+  structuredData?: StructuredClaim
+}
+
+
 
 export function DocumentUpload() {
   const [dragActive, setDragActive] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [isUploading, setIsUploading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [extractedData, setExtractedData] = useState<StructuredClaim[]>([
+    {
+      villageName: "Jhabua Village",
+      claimantName: "Ramesh Kumar Bhil",
+      landSize: "2.5 hectares",
+      claimStatus: "Approved",
+      claimType: "Individual Forest Rights",
+      submissionDate: "2024-03-15",
+      coordinates: [22.7697, 74.5947]
+    },
+    {
+      villageName: "Mayurbhanj District",
+      claimantName: "Sita Devi Soren",
+      landSize: "1.8 hectares",
+      claimStatus: "Under Review",
+      claimType: "Community Forest Rights",
+      submissionDate: "2024-02-28",
+      coordinates: [22.1000, 86.0000]
+    },
+    {
+      villageName: "Dhalai Village",
+      claimantName: "Tripura Tribal Council",
+      landSize: "15.2 hectares",
+      claimStatus: "Approved",
+      claimType: "Community Forest Rights",
+      submissionDate: "2024-01-20",
+      coordinates: [23.7500, 91.9500]
+    }
+  ])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const {
+    isUploading,
+    uploadProgress,
+    documents: uploadedDocuments,
+    ocrResults,
+    nerResults,
+    uploadDocument,
+    getStructuredData,
+    clearProgress
+  } = useDocumentUpload()
+
+  // Demo documents for display
+  const demoDocuments: DemoDocument[] = [
+    {
+      id: "demo-1",
+      name: "FRA_Claim_Jhabua_MP_001.pdf",
+      type: "pdf" as const,
+      size: 2456789,
+      uploadDate: new Date('2024-03-15').toISOString(),
+      status: "completed" as const,
+      progress: 100,
+      structuredData: {
+        villageName: "Jhabua Village",
+        claimantName: "Ramesh Kumar Bhil",
+        landSize: "2.5 hectares",
+        claimStatus: "Approved",
+        claimType: "Individual Forest Rights"
+      }
+    },
+    {
+      id: "demo-2", 
+      name: "Community_Rights_Mayurbhanj_OR.pdf",
+      type: "pdf" as const,
+      size: 3128456,
+      uploadDate: new Date('2024-02-28').toISOString(),
+      status: "completed" as const,
+      progress: 100,
+      structuredData: {
+        villageName: "Mayurbhanj District",
+        claimantName: "Sita Devi Soren",
+        landSize: "1.8 hectares",
+        claimStatus: "Under Review",
+        claimType: "Community Forest Rights"
+      }
+    },
+    {
+      id: "demo-3",
+      name: "Tribal_Council_Dhalai_TR.pdf",
+      type: "pdf" as const,
+      size: 1876543,
+      uploadDate: new Date('2024-01-20').toISOString(),
+      status: "completed" as const,
+      progress: 100,
+      structuredData: {
+        villageName: "Dhalai Village",
+        claimantName: "Tripura Tribal Council",
+        landSize: "15.2 hectares",
+        claimStatus: "Approved",
+        claimType: "Community Forest Rights"
+      }
+    }
+  ]
+
+  // Combine uploaded documents with demo documents
+  const documents: (Document | DemoDocument)[] = [...demoDocuments, ...uploadedDocuments]
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -72,29 +136,46 @@ export function DocumentUpload() {
     }
   }, [])
 
-  const handleFiles = (files: FileList) => {
-    setIsUploading(true)
-    setUploadProgress(0)
+  const handleFiles = async (files: FileList) => {
+    if (files.length === 0) return
+    
+    const file = files[0]
+    setSelectedFile(file)
+    
+    try {
+      const result = await uploadDocument(file)
+      
+      if (result.success && result.data) {
+        const structuredData = result.data.structuredData
+        setExtractedData(prev => [...prev, structuredData])
+      }
+    } catch (error) {
+      console.error('Upload failed:', error)
+    }
+  }
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setIsUploading(false)
-          return 100
-        }
-        return prev + 10
-      })
-    }, 200)
+  const handleFileInput = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      handleFiles(event.target.files)
+    }
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">FRA Document Upload</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900">FRA Document Upload</h1>
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            Demo Mode
+          </Badge>
+        </div>
         <p className="text-gray-600">Upload and process FRA claims with AI-powered OCR and NER extraction</p>
+        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            ℹ️ This is a demonstration with sample FRA documents showing the AI processing capabilities. Upload your own documents to see real-time OCR and NER extraction.
+          </p>
+        </div>
       </div>
 
       {/* AI Processing Pipeline */}
@@ -208,16 +289,40 @@ export function DocumentUpload() {
               </div>
               <h3 className="text-lg font-semibold mb-2">Drag & Drop FRA Documents</h3>
               <p className="text-gray-600 mb-4">Supported formats: PDF, JPG, PNG (Max 10MB)</p>
-              <Button>Choose Files</Button>
+              <div className="space-y-2">
+                <Button onClick={() => fileInputRef.current?.click()}>
+                  Choose Files
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileInput}
+                  className="hidden"
+                  multiple={false}
+                />
+                {selectedFile && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
             </div>
 
-            {isUploading && (
+            {(isUploading || uploadProgress.length > 0) && (
               <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Uploading...</span>
-                  <span className="text-sm text-gray-600">{uploadProgress}%</span>
-                </div>
-                <Progress value={uploadProgress} className="h-2" />
+                {uploadProgress.map((progress, index) => (
+                  <div key={progress.fileId} className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{progress.message || progress.stage}</span>
+                      <span className="text-sm text-gray-600">{progress.progress}%</span>
+                    </div>
+                    <Progress value={progress.progress} className="h-2" />
+                    <div className="mt-1 text-xs text-gray-500">
+                      Stage: {progress.stage.toUpperCase()}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -235,6 +340,89 @@ export function DocumentUpload() {
           </CardContent>
         </Card>
 
+        {/* Extracted Data Table - Always visible with demo data */}
+        <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Extracted Data Results
+              </CardTitle>
+              <CardDescription>Structured data extracted from uploaded documents using OCR + NER</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-300 px-4 py-2 text-left">Village</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Claimant</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Land Size</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">GPS Coordinates</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Type</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extractedData.map((data, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 px-4 py-2">
+                          {data.villageName || 'N/A'}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {data.claimantName || 'N/A'}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {data.landSize || 'N/A'}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2 text-xs text-gray-600">
+                          {data.coordinates ? `${data.coordinates[0].toFixed(4)}°N, ${data.coordinates[1].toFixed(4)}°E` : 'N/A'}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <Badge 
+                            variant={data.claimStatus?.toLowerCase().includes('approved') ? 'default' : 'secondary'}
+                          >
+                            {data.claimStatus || 'N/A'}
+                          </Badge>
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          {data.claimType || 'N/A'}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm">
+                              View Details
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              Export
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {extractedData.length > 0 && (
+                <div className="mt-4 flex justify-between items-center">
+                  <p className="text-sm text-gray-600">
+                    Total records extracted: {extractedData.length}
+                  </p>
+                  <div className="space-x-2">
+                    <Button variant="outline" size="sm">
+                      Export All as CSV
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Save to Database
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         {/* Recent Documents */}
         <Card>
           <CardHeader>
@@ -243,109 +431,138 @@ export function DocumentUpload() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockDocuments.map((doc) => (
-                <div key={doc.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      <span className="font-medium text-sm">{doc.name}</span>
-                    </div>
-                    <Badge
-                      variant={
-                        doc.status === "completed"
-                          ? "default"
-                          : doc.status === "processing"
-                            ? "secondary"
-                            : "destructive"
-                      }
-                    >
-                      {doc.status}
-                    </Badge>
-                  </div>
-
-                  <div className="text-xs text-gray-600 mb-2">
-                    {doc.size} • {doc.date}
-                  </div>
-
-                  {doc.status === "processing" && (
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-gray-600">Processing...</span>
-                        <span className="text-xs text-gray-600">{doc.progress}%</span>
-                      </div>
-                      <Progress value={doc.progress} className="h-1" />
-                    </div>
-                  )}
-
-                  {doc.status === "completed" && (
-                    <div className="bg-green-50 rounded p-3 text-xs space-y-1">
-                      <div className="font-medium text-green-800">Extracted Information:</div>
-                      <div>
-                        <span className="font-medium">Holder:</span> {doc.holder}
-                      </div>
-                      <div>
-                        <span className="font-medium">Village:</span> {doc.village}
-                      </div>
-                      <div>
-                        <span className="font-medium">Type:</span> {doc.type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Area:</span> {doc.area}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between mt-3">
-                    <Button variant="ghost" size="sm">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                      View
-                    </Button>
-                    {doc.status === "completed" && (
-                      <Button variant="ghost" size="sm">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        Export
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </Button>
-                  </div>
+              {documents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p>No documents uploaded yet</p>
+                  <p className="text-sm">Upload a document to see processing results</p>
                 </div>
-              ))}
+              ) : (
+                documents.map((doc) => {
+                  const structuredData = 'structuredData' in doc ? doc.structuredData : getStructuredData(doc.id)
+                  
+                  return (
+                    <div key={doc.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          <span className="font-medium text-sm">{doc.name}</span>
+                          {doc.id.startsWith('demo-') && (
+                            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                              Demo
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge
+                          variant={
+                            doc.status === "completed"
+                              ? "default"
+                              : doc.status === "processing"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                        >
+                          {doc.status}
+                        </Badge>
+                      </div>
+
+                      <div className="text-xs text-gray-600 mb-2">
+                        {(doc.size / 1024 / 1024).toFixed(2)} MB • {new Date(doc.uploadDate).toLocaleDateString()}
+                      </div>
+
+                      {doc.status === "processing" && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-gray-600">Processing...</span>
+                            <span className="text-xs text-gray-600">{doc.progress}%</span>
+                          </div>
+                          <Progress value={doc.progress} className="h-1" />
+                        </div>
+                      )}
+
+                      {doc.status === "completed" && structuredData && (
+                        <div className="bg-green-50 rounded p-3 text-xs space-y-1">
+                          <div className="font-medium text-green-800">Extracted Information:</div>
+                          <div>
+                            <span className="font-medium">Village:</span> {structuredData.villageName || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Claimant:</span> {structuredData.claimantName || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Land Size:</span> {structuredData.landSize || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Status:</span> {structuredData.claimStatus || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Type:</span> {structuredData.claimType || 'N/A'}
+                          </div>
+                        </div>
+                      )}
+
+                      {doc.status === "error" && (
+                        <div className="bg-red-50 rounded p-3 text-xs">
+                          <div className="font-medium text-red-800">Processing failed</div>
+                          <div className="text-red-600">Please try uploading the document again</div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between mt-3">
+                        <Button variant="ghost" size="sm">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                          View
+                        </Button>
+                        {doc.status === "completed" && (
+                          <Button variant="ghost" size="sm">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            Export
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </CardContent>
         </Card>

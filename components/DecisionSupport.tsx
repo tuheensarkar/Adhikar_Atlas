@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useDSS } from "@/hooks/useDSS"
+import type { Scheme } from "@/types"
+import { mockVillages } from "@/services/mockData"
 import { 
   Brain, 
   Target, 
@@ -30,133 +33,50 @@ import {
   Filter
 } from "lucide-react"
 
-interface Scheme {
-  id: string
-  name: string
-  ministry: string
-  category: 'livelihood' | 'infrastructure' | 'welfare' | 'agriculture'
-  eligibility: number
-  budget: number
-  coverage: number
-  benefits: string[]
-  status: 'recommended' | 'eligible' | 'applied' | 'approved'
-  aiScore: number
-  priority: 'high' | 'medium' | 'low'
-  impact: string
-}
-
-const mockSchemes: Scheme[] = [
-  {
-    id: 'pmkisan',
-    name: 'PM-KISAN',
-    ministry: 'Ministry of Agriculture',
-    category: 'agriculture',
-    eligibility: 95,
-    budget: 75000,
-    coverage: 85,
-    benefits: ['₹6,000 annual income support', 'Direct benefit transfer', 'Crop insurance linkage'],
-    status: 'recommended',
-    aiScore: 94,
-    priority: 'high',
-    impact: 'Direct income enhancement for farming families'
-  },
-  {
-    id: 'jaljeevan',
-    name: 'Jal Jeevan Mission',
-    ministry: 'Ministry of Jal Shakti',
-    category: 'infrastructure',
-    eligibility: 88,
-    budget: 125000,
-    coverage: 62,
-    benefits: ['Piped water supply', 'Water quality testing', 'Community participation'],
-    status: 'eligible',
-    aiScore: 91,
-    priority: 'high',
-    impact: 'Improved health and sanitation outcomes'
-  },
-  {
-    id: 'mgnrega',
-    name: 'MGNREGA',
-    ministry: 'Ministry of Rural Development',
-    category: 'livelihood',
-    eligibility: 92,
-    budget: 95000,
-    coverage: 78,
-    benefits: ['100 days guaranteed employment', 'Skill development', 'Asset creation'],
-    status: 'applied',
-    aiScore: 89,
-    priority: 'medium',
-    impact: 'Employment generation and rural asset creation'
-  },
-  {
-    id: 'dajgua',
-    name: 'DAJGUA',
-    ministry: 'Ministry of Tribal Affairs',
-    category: 'welfare',
-    eligibility: 97,
-    budget: 180000,
-    coverage: 45,
-    benefits: ['Infrastructure development', 'Livelihood support', 'Skill training'],
-    status: 'recommended',
-    aiScore: 96,
-    priority: 'high',
-    impact: 'Comprehensive tribal area development'
-  }
-]
-
-const aiRecommendations = [
-  {
-    type: 'convergence',
-    title: 'Multi-Scheme Convergence Opportunity',
-    description: 'Link PM-KISAN with Jal Jeevan Mission for enhanced agricultural productivity',
-    impact: 'High',
-    beneficiaries: 1250,
-    investment: '₹15.2 Cr'
-  },
-  {
-    type: 'optimization',
-    title: 'MGNREGA Asset Optimization',
-    description: 'Focus on water conservation structures to maximize dual benefits',
-    impact: 'Medium',
-    beneficiaries: 890,
-    investment: '₹8.7 Cr'
-  },
-  {
-    type: 'targeting',
-    title: 'Precision Targeting Enhancement',
-    description: 'Use satellite data for better scheme targeting and monitoring',
-    impact: 'High',
-    beneficiaries: 2340,
-    investment: '₹3.5 Cr'
-  }
-]
-
 export function DecisionSupport() {
+  const {
+    isAnalyzing,
+    analysisProgress,
+    recommendations,
+    convergenceOpportunities,
+    priorityActions,
+    lastAnalysis,
+    confidence,
+    filters,
+    selectedSchemes,
+    runAnalysis,
+    resetAnalysis,
+    getFilteredSchemes,
+    updateFilters,
+    toggleSchemeSelection,
+    getSchemeStatistics,
+    exportAnalysis
+  } = useDSS()
+  
   const [activeTab, setActiveTab] = useState("overview")
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [filterCategory, setFilterCategory] = useState<string>("all")
-  const [analysisProgress, setAnalysisProgress] = useState(0)
+  const [selectedVillage, setSelectedVillage] = useState<string>("village_1")
 
-  const filteredSchemes = mockSchemes.filter(scheme => 
-    filterCategory === "all" || scheme.category === filterCategory
-  ).sort((a, b) => b.aiScore - a.aiScore)
-
-  const runAIAnalysis = () => {
-    setIsAnalyzing(true)
-    setAnalysisProgress(0)
-    
-    const interval = setInterval(() => {
-      setAnalysisProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setIsAnalyzing(false)
-          return 100
-        }
-        return prev + 10
-      })
-    }, 300)
+  // Handle running AI analysis for selected village
+  const handleRunAnalysis = async () => {
+    try {
+      await runAnalysis(selectedVillage)
+    } catch (error) {
+      console.error('Analysis failed:', error)
+    }
   }
-
+  
+  // Handle export functionality
+  const handleExportAnalysis = async () => {
+    try {
+      await exportAnalysis('json')
+    } catch (error) {
+      console.error('Export failed:', error)
+    }
+  }
+  
+  // Get filtered schemes for display
+  const filteredSchemes = getFilteredSchemes()
+  const statistics = getSchemeStatistics()
   const getSchemeIcon = (category: string) => {
     switch (category) {
       case 'agriculture': return <Tractor className="w-5 h-5" />
@@ -199,13 +119,24 @@ export function DecisionSupport() {
           </p>
         </div>
         <div className="flex items-center space-x-3 mt-6 lg:mt-0">
-          <Button variant="outline" size="sm" onClick={runAIAnalysis} disabled={isAnalyzing}>
+          <select 
+            value={selectedVillage}
+            onChange={(e) => setSelectedVillage(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+          >
+            {mockVillages.map(village => (
+              <option key={village.id} value={village.id}>
+                {village.name}, {village.state}
+              </option>
+            ))}
+          </select>
+          <Button variant="outline" size="sm" onClick={handleRunAnalysis} disabled={isAnalyzing}>
             {isAnalyzing ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
             {isAnalyzing ? 'Analyzing...' : 'Run AI Analysis'}
           </Button>
-          <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
+          <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600" onClick={handleExportAnalysis}>
             <Download className="w-4 h-4 mr-2" />
-            Export Recommendations
+            Export Report
           </Button>
         </div>
       </div>
@@ -232,31 +163,31 @@ export function DecisionSupport() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           {
-            title: "Total Beneficiaries",
-            value: "95,340",
+            title: "Total Schemes",
+            value: statistics.total.toString(),
             change: "+12%",
-            icon: <Users className="w-6 h-6" />,
+            icon: <Target className="w-6 h-6" />,
             color: "blue"
           },
           {
-            title: "Scheme Coverage",
-            value: "68.5%",
+            title: "Avg AI Score",
+            value: `${statistics.avgAIScore.toFixed(1)}%`,
             change: "+8.3%",
-            icon: <Target className="w-6 h-6" />,
+            icon: <Brain className="w-6 h-6" />,
             color: "green"
           },
           {
             title: "Total Benefits",
-            value: "₹450 Cr",
+            value: `₹${(statistics.totalBenefit / 100000).toFixed(1)} L`,
             change: "+25%",
             icon: <IndianRupee className="w-6 h-6" />,
             color: "purple"
           },
           {
-            title: "AI Accuracy",
-            value: "94.7%",
+            title: "Analysis Confidence",
+            value: `${confidence || 0}%`,
             change: "+2.1%",
-            icon: <Brain className="w-6 h-6" />,
+            icon: <Award className="w-6 h-6" />,
             color: "cyan"
           }
         ].map((metric, index) => (
@@ -309,12 +240,12 @@ export function DecisionSupport() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {aiRecommendations.map((rec, index) => (
+                {convergenceOpportunities.map((rec, index) => (
                   <div key={index} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-3">
                       <Badge className="bg-purple-100 text-purple-700">{rec.type}</Badge>
-                      <Badge variant={rec.impact === 'High' ? 'default' : 'secondary'}>
-                        {rec.impact} Impact
+                      <Badge variant={rec.priority === 'high' ? 'default' : 'secondary'}>
+                        {rec.priority} Priority
                       </Badge>
                     </div>
                     <h4 className="font-semibold mb-2">{rec.title}</h4>
@@ -322,11 +253,15 @@ export function DecisionSupport() {
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Beneficiaries:</span>
-                        <span className="font-medium">{rec.beneficiaries.toLocaleString()}</span>
+                        <span className="font-medium">{rec.beneficiaryCount.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Investment:</span>
-                        <span className="font-medium">{rec.investment}</span>
+                        <span className="font-medium">₹{(rec.estimatedCost / 100000).toFixed(1)}L</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Confidence:</span>
+                        <span className="font-medium">{rec.confidence}%</span>
                       </div>
                     </div>
                   </div>
@@ -350,10 +285,10 @@ export function DecisionSupport() {
                   <h4 className="font-semibold mb-3">Coverage by Category</h4>
                   <div className="space-y-3">
                     {[
-                      { category: 'Agriculture', coverage: 85, schemes: 3 },
-                      { category: 'Infrastructure', coverage: 62, schemes: 4 },
-                      { category: 'Welfare', coverage: 78, schemes: 2 },
-                      { category: 'Livelihood', coverage: 71, schemes: 3 }
+                      { category: 'Agriculture', coverage: statistics.byCategory.agriculture * 20, schemes: statistics.byCategory.agriculture },
+                      { category: 'Infrastructure', coverage: statistics.byCategory.infrastructure * 15, schemes: statistics.byCategory.infrastructure },
+                      { category: 'Welfare', coverage: statistics.byCategory.welfare * 25, schemes: statistics.byCategory.welfare },
+                      { category: 'Livelihood', coverage: statistics.byCategory.livelihood * 18, schemes: statistics.byCategory.livelihood }
                     ].map((item, index) => (
                       <div key={index} className="space-y-2">
                         <div className="flex justify-between">
@@ -366,13 +301,12 @@ export function DecisionSupport() {
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-semibold mb-3">AI Score Distribution</h4>
+                  <h4 className="font-semibold mb-3">Priority Distribution</h4>
                   <div className="space-y-3">
                     {[
-                      { range: '90-100%', count: 2, color: 'green' },
-                      { range: '80-89%', count: 2, color: 'blue' },
-                      { range: '70-79%', count: 1, color: 'orange' },
-                      { range: 'Below 70%', count: 0, color: 'red' }
+                      { range: 'High Priority', count: statistics.byPriority.high, color: 'red' },
+                      { range: 'Medium Priority', count: statistics.byPriority.medium, color: 'orange' },
+                      { range: 'Low Priority', count: statistics.byPriority.low, color: 'green' }
                     ].map((item, index) => (
                       <div key={index} className="flex items-center justify-between p-2 rounded-lg border">
                         <span className="text-sm font-medium">{item.range}</span>
@@ -397,8 +331,8 @@ export function DecisionSupport() {
                   <Filter className="w-4 h-4 text-gray-400" />
                   <span className="text-sm font-medium text-gray-700">Filter by category:</span>
                   <select 
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
+                    value={filters.category}
+                    onChange={(e) => updateFilters({ category: e.target.value as any })}
                     className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="all">All Categories</option>
@@ -417,7 +351,7 @@ export function DecisionSupport() {
 
           {/* Scheme Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredSchemes.map((scheme) => (
+            {filteredSchemes.map((scheme: Scheme) => (
               <Card key={scheme.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -443,30 +377,30 @@ export function DecisionSupport() {
                       <span className="text-sm font-medium text-purple-900">AI Compatibility Score</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Progress value={scheme.aiScore} className="w-20 h-2" />
-                      <span className="text-sm font-bold text-purple-600">{scheme.aiScore}%</span>
+                      <Progress value={scheme.aiCompatibilityScore} className="w-20 h-2" />
+                      <span className="text-sm font-bold text-purple-600">{scheme.aiCompatibilityScore}%</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <div className="text-sm text-gray-600">Eligibility</div>
-                      <div className="font-semibold text-green-600">{scheme.eligibility}%</div>
+                      <div className="font-semibold text-green-600">{scheme.eligibilityScore}%</div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Budget</div>
-                      <div className="font-semibold text-blue-600">₹{scheme.budget.toLocaleString()}</div>
+                      <div className="font-semibold text-blue-600">₹{(scheme.budgetAllocation / 1000).toFixed(0)}K</div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-600">Coverage</div>
-                      <div className="font-semibold text-orange-600">{scheme.coverage}%</div>
+                      <div className="font-semibold text-orange-600">{scheme.coveragePercentage}%</div>
                     </div>
                   </div>
 
                   <div>
                     <h5 className="font-semibold mb-2">Key Benefits:</h5>
                     <div className="space-y-1">
-                      {scheme.benefits.slice(0, 3).map((benefit, index) => (
+                      {scheme.benefits.slice(0, 3).map((benefit: string, index: number) => (
                         <div key={index} className="flex items-center space-x-2 text-sm">
                           <CheckCircle className="w-3 h-3 text-green-600" />
                           <span>{benefit}</span>
@@ -479,12 +413,21 @@ export function DecisionSupport() {
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
                         <Award className="w-4 h-4 inline mr-1" />
-                        Impact: {scheme.impact.split(' ').slice(0, 4).join(' ')}...
+                        Impact: {scheme.description.split(' ').slice(0, 4).join(' ')}...
                       </div>
-                      <Button variant="outline" size="sm">
-                        View Details
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant={selectedSchemes.includes(scheme.id) ? "default" : "outline"} 
+                          size="sm"
+                          onClick={() => toggleSchemeSelection(scheme.id)}
+                        >
+                          {selectedSchemes.includes(scheme.id) ? 'Selected' : 'Select'}
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          View Details
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -505,26 +448,7 @@ export function DecisionSupport() {
                 <CardDescription>Opportunities for multi-scheme integration</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  {
-                    schemes: ['PM-KISAN', 'Jal Jeevan Mission'],
-                    impact: 'Enhanced agricultural productivity',
-                    beneficiaries: 1250,
-                    synergy: 95
-                  },
-                  {
-                    schemes: ['MGNREGA', 'DAJGUA'],
-                    impact: 'Comprehensive livelihood support',
-                    beneficiaries: 890,
-                    synergy: 88
-                  },
-                  {
-                    schemes: ['PM Awas', 'Jal Jeevan Mission'],
-                    impact: 'Complete housing solutions',
-                    beneficiaries: 654,
-                    synergy: 82
-                  }
-                ].map((item, index) => (
+                {convergenceOpportunities.map((item, index) => (
                   <div key={index} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex flex-wrap gap-1">
@@ -535,12 +459,12 @@ export function DecisionSupport() {
                         ))}
                       </div>
                       <Badge className="bg-green-100 text-green-700">
-                        {item.synergy}% synergy
+                        {item.confidence}% confidence
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{item.impact}</p>
+                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                     <div className="text-xs text-gray-500">
-                      {item.beneficiaries.toLocaleString()} potential beneficiaries
+                      {item.beneficiaryCount.toLocaleString()} potential beneficiaries
                     </div>
                   </div>
                 ))}
@@ -557,37 +481,18 @@ export function DecisionSupport() {
                 <CardDescription>Immediate recommendations for implementation</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  {
-                    action: 'Accelerate DAJGUA rollout',
-                    reason: 'Highest AI compatibility score (96%)',
-                    urgency: 'High',
-                    timeline: '30 days'
-                  },
-                  {
-                    action: 'Integrate water & agriculture schemes',
-                    reason: 'Maximum convergence potential',
-                    urgency: 'Medium', 
-                    timeline: '60 days'
-                  },
-                  {
-                    action: 'Enhance targeting precision',
-                    reason: 'Satellite data integration opportunity',
-                    urgency: 'Medium',
-                    timeline: '90 days'
-                  }
-                ].map((item, index) => (
+                {priorityActions.map((item, index) => (
                   <div key={index} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-semibold text-sm">{item.action}</h5>
-                      <Badge variant={item.urgency === 'High' ? 'destructive' : 'secondary'}>
-                        {item.urgency}
+                      <h5 className="font-semibold text-sm">{item.title}</h5>
+                      <Badge variant={item.priority === 'high' ? 'destructive' : 'secondary'}>
+                        {item.priority}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{item.reason}</p>
+                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                     <div className="flex items-center text-xs text-gray-500">
                       <Clock className="w-3 h-3 mr-1" />
-                      Target timeline: {item.timeline}
+                      Confidence: {item.confidence}% | Impact: {item.expectedImpact}
                     </div>
                   </div>
                 ))}

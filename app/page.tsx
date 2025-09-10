@@ -18,9 +18,17 @@ export default function FRAAtlasDashboard() {
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Avoid hydration mismatch by ensuring component is mounted
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
+    if (!mounted) return // Prevent running on server
+    
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only process shortcuts if no modal is open and user is authenticated
       if (!isAuthenticated || isQuickActionsOpen) return
@@ -62,7 +70,7 @@ export default function FRAAtlasDashboard() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isAuthenticated, isQuickActionsOpen])
+  }, [mounted, isAuthenticated, isQuickActionsOpen])
 
   const handleSectionChange = (section: string) => {
     setIsLoading(true)
@@ -83,6 +91,15 @@ export default function FRAAtlasDashboard() {
       setIsAuthenticated(true)
       setIsLoading(false)
     }, 1500)
+  }
+
+  if (!mounted) {
+    // Return a simple loading state to prevent hydration mismatch
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50/30 via-white to-green-50/30 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading FRA Atlas..." />
+      </div>
+    )
   }
 
   if (!isAuthenticated) {
@@ -161,16 +178,18 @@ export default function FRAAtlasDashboard() {
       </div>
 
       {/* Scroll to Top Button */}
-      <button
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="fixed bottom-8 right-8 w-12 h-12 bg-[var(--gov-blue)] text-white rounded-full shadow-lg hover:shadow-xl focus:ring-4 focus:ring-blue-300 focus:outline-none transition-all duration-200 flex items-center justify-center z-40"
-        aria-label="Scroll to top"
-        title="Scroll to top (Keyboard accessible)"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-        </svg>
-      </button>
+      {mounted && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-8 right-8 w-12 h-12 bg-[var(--gov-blue)] text-white rounded-full shadow-lg hover:shadow-xl focus:ring-4 focus:ring-blue-300 focus:outline-none transition-all duration-200 flex items-center justify-center z-40"
+          aria-label="Scroll to top"
+          title="Scroll to top (Keyboard accessible)"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </button>
+      )}
 
       {/* Government Footer */}
       <footer className="bg-[var(--gov-blue)] text-white py-8 mt-16">
